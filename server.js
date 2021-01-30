@@ -1,30 +1,48 @@
-const express = require("express");
-const mongoose = require('mongoose')
-const path = require("path");
+require('dotenv').config();
+
+// Configuration check.
+// Disable this at your own risk
+require('./utils/verifyConfiguration')();
+
+// Requiring necessary npm packages
+const express = require('express');
+const path = require('path');
+// Requiring our routes
+const routes = require('./controllers');
+// Setting up port and requiring models for syncing
 const PORT = process.env.PORT || 3001;
+const db = require('./models');
+// Bringing in Morgan, a nice logger for our server
+const morgan = require('morgan');
+// Compression
+const compression = require('compression');
+// Creating express app
 const app = express();
-const routes = require('./controllers/bookController');
 
-
-// Define middleware here
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-// Serve up static assets (usually on heroku)
-if (process.env.NODE_ENV === "production") {
-    app.use(express.static("client/build"));
+// Set up our middleware!
+// Dev Logging. Only works in test or development
+if (process.env.NODE_ENV !== 'production') {
+    app.use(morgan('dev'));
 }
 
-mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost/googleBooks", { useNewUrlParser: true });
+// enable compression middleware
+app.use(compression());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+if (process.env.NODE_ENV === 'production') {
+    app.use(express.static('client/build'));
+}
 
-// Define API routes here
-
+// Add all our backend routes
 app.use(routes);
-// Send every other request to the React app
-// Define any API routes before this runs
-app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "./client/build/index.html"));
+
+// Send all other requests to react app
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, './client/build/index.html'));
 });
 
-app.listen(PORT, () => {
-    console.log(`🌎 ==> API server now on port ${PORT}!`);
+db.sequelize.sync({force:false}).then(function () {
+    app.listen(PORT, function () {
+        console.log(`Server now on port ${PORT}!`);
+    });
 });
